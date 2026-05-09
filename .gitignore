@@ -1,0 +1,18 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Coverage
+coverage.txt
+coverage.html
