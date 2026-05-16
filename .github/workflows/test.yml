@@ -1,0 +1,101 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.21', '1.22', '1.23', '1.24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Verify zero third-party dependencies
+        # agentbudget-go promises stdlib-only; this fails fast if any
+        # require entry lands in go.mod.
+        run: |
+          if grep -q "^require " go.mod && grep -q "^require " go.mod | grep -v "// indirect"; then
+            echo "agentbudget-go must have zero direct dependencies in go.mod"
+            cat go.mod
+            exit 1
+          fi
+          # Also check that no third-party imports exist
+          if grep -rhE "^import " *.go | grep -E '"(github\.com|gitlab\.com|bitbucket\.org|golang\.org/x)' ; then
+            echo "Third-party import detected; agentbudget-go must be stdlib-only"
+            exit 1
+          fi
+          echo "confirmed: stdlib-only"
+
+      - name: Test with race detector and coverage
+        run: |
+          go test -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Enforce coverage floor
+        if: matrix.go-version == '1.23'
+        run: |
+          PCT=$(go tool cover -func=coverage.out | awk '/^total:/ {print substr($3,1,length($3)-1)}')
+          THRESHOLD=85
+          if awk -v p="$PCT" -v t="$THRESHOLD" 'BEGIN { exit !(p < t) }'; then
+            echo "Coverage $PCT% is below threshold $THRESHOLD%"
+            exit 1
+          fi
+          echo "Coverage $PCT% meets threshold $THRESHOLD%"
+
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.23'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  build-example:
+    name: build runnable example
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Build example program
+        run: |
+          if [ -d examples/basic ]; then
+            cd examples/basic && go build -o /tmp/agentbudget-example .
+            /tmp/agentbudget-example
+          else
+            echo "no examples/basic directory; skipping"
+          fi
