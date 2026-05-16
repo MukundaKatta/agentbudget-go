@@ -8,8 +8,8 @@ import (
 // AttemptEvent is one observable lifecycle event in a Run call. Emitted to
 // the OnAttempt hook (if set) at "start", "retry", "success", and "failure".
 type AttemptEvent struct {
-	Kind                string         // "start" | "retry" | "success" | "failure"
-	Attempt             int            // 1-indexed; 0 only for "start"
+	Kind                string // "start" | "retry" | "success" | "failure"
+	Attempt             int    // 1-indexed; 0 only for "start"
 	CumulativeCostUSD   float64
 	CumulativeLatency   time.Duration
 	LastError           error
