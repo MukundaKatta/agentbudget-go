@@ -1,5 +1,11 @@
 # agentbudget-go
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/MukundaKatta/agentbudget-go.svg)](https://pkg.go.dev/github.com/MukundaKatta/agentbudget-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/MukundaKatta/agentbudget-go)](https://goreportcard.com/report/github.com/MukundaKatta/agentbudget-go)
+[![CI](https://github.com/MukundaKatta/agentbudget-go/actions/workflows/test.yml/badge.svg)](https://github.com/MukundaKatta/agentbudget-go/actions/workflows/test.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Zero deps](https://img.shields.io/badge/deps-stdlib%20only-brightgreen.svg)](go.mod)
+
 Production retry/budget primitive for LLM and agent calls. Go port of [`agent-budget`](https://github.com/MukundaKatta/agent-budget) (Python) and the `withBudget` half of [`@mukundakatta/agentbudget`](https://www.npmjs.com/package/@mukundakatta/agentbudget) (JavaScript).
 
 ```bash

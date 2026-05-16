@@ -1,0 +1,78 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write  # to create the GitHub Release
+
+jobs:
+  test-before-release:
+    name: confirm tests pass before release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - run: go vet ./...
+      - run: go test -race -cover ./...
+
+  github-release:
+    name: create GitHub Release
+    needs: test-before-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { capture = 1; next }
+            capture && $0 ~ "^## \\[" { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Release v$VERSION" > release-notes.md
+          fi
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+  # pkg.go.dev is auto-indexed by the Go module proxy when a new tag is
+  # visible on GitHub. No publish step is needed here. The proxy usually
+  # picks up new tags within a minute or two; to force it, you can hit:
+  #   https://proxy.golang.org/github.com/!mukunda!katta/agentbudget-go/@v/v0.1.X.info
+  # which warms the cache and causes pkg.go.dev to display the new version.
+  warm-pkg-go-dev:
+    name: warm pkg.go.dev cache
+    needs: test-before-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request module info from proxy.golang.org
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # The Go module proxy escapes uppercase letters in import paths
+          # by prefixing them with !; "MukundaKatta" -> "!mukunda!katta".
+          ESCAPED=$(echo "github.com/MukundaKatta/agentbudget-go" | sed 's/\([A-Z]\)/!\L\1/g')
+          # Try a few times in case the tag hasn't fully replicated
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://proxy.golang.org/${ESCAPED}/@v/${TAG}.info")
+            echo "attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "module ${TAG} is now indexed by the Go proxy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "module not yet indexed after 5 tries; will retry on its own"
+          exit 0

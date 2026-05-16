@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: https://github.com/MukundaKatta/agentbudget-go/security/advisories/new
+    about: Please report security issues privately via GitHub Security Advisories or email mukunda.vjcs6@gmail.com (do not file a public issue).
+  - name: Questions
+    url: https://github.com/MukundaKatta/agentbudget-go/discussions
+    about: Use Discussions for usage questions or design feedback. Issues are for bugs and concrete feature requests.
+  - name: Sibling libraries
+    url: https://github.com/MukundaKatta/agentbudget-go/blob/main/CONTRIBUTING.md#sibling-libraries
+    about: Python (agent-budget) and JavaScript (@mukundakatta/agentbudget) ports also exist. Open an issue there if your concern is language-specific.
