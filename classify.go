@@ -10,6 +10,7 @@ import (
 // AttemptEvent.ErrorClassification.
 type Classification string
 
+// The set of classifications Classify can assign to an error.
 const (
 	ClassificationRetryable Classification = "retryable"
 	ClassificationFatal     Classification = "fatal"

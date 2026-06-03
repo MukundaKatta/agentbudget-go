@@ -10,6 +10,7 @@ import "fmt"
 // BudgetKind names which budget tripped in BudgetExceededError.
 type BudgetKind string
 
+// The budget kinds Run can report as exceeded, one per configurable limit.
 const (
 	BudgetKindAttempts  BudgetKind = "attempts"
 	BudgetKindWallClock BudgetKind = "wallClock"

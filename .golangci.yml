@@ -1,34 +1,35 @@
-# golangci-lint config for agentbudget-go.
+# golangci-lint config for agentbudget-go (v2 schema).
 # Conservative ruleset since this is a small stdlib-only library.
+version: "2"
 
 run:
   timeout: 5m
-  go: '1.21'
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck         # unchecked error returns
-    - gosimple         # simplification hints
     - govet            # standard Go vet checks
     - ineffassign      # detect ineffectual assignments
-    - staticcheck      # comprehensive static analysis
+    - staticcheck      # comprehensive static analysis (absorbs gosimple in v2)
     - unused           # unused symbols
     - misspell         # spelling in comments/strings
-    - gofmt            # formatting
     - revive           # more configurable replacement for golint
-
-linters-settings:
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+            - "disableStutteringCheck"
+  exclusions:
     rules:
-      - name: exported
-        arguments:
-          - "checkPrivateReceivers"
-          - "disableStutteringCheck"
+      # Test files are allowed to use long lines and skip some checks
+      - path: _test\.go
+        linters:
+          - errcheck
 
-issues:
-  exclude-rules:
-    # Test files are allowed to use long lines and skip some checks
-    - path: _test\.go
-      linters:
-        - errcheck
+# Formatting linters moved to their own section in v2.
+formatters:
+  enable:
+    - gofmt
