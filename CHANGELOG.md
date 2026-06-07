@@ -2,6 +2,25 @@
 
 All notable changes to `agentbudget-go` are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `BudgetExceededError` from the **wall-clock** path now carries the most recent
+  failure cause in `Last`, so `errors.Is` / `errors.As` traverse through to it
+  just like the attempts path already did. Previously the wall-clock budget
+  error had a `nil` `Last`, making error-chain inspection inconsistent.
+- CI: the "verify zero third-party dependencies" step had broken shell logic
+  (`grep -q ... | grep -v ...` operates on empty input, so the guard never
+  actually fired). Rewrote it to inspect `go.mod` requirements correctly and to
+  use `go list -deps` so the stdlib-only guarantee is genuinely enforced.
+
+### Added
+
+- Tests for the `BudgetExceededError` / `AdversarialLoopDetectedError` message
+  formats and `Unwrap()` chains, for context cancellation during the *default*
+  backoff sleep, and for the wall-clock budget error carrying its last cause.
+
 ## [0.1.0] — 2026-05-09
 
 Initial release. Go port of the Python sibling at [MukundaKatta/agent-budget](https://github.com/MukundaKatta/agent-budget). Closes the same three-thing core: cost cap, structured per-attempt events, and adversarial-loop detection.

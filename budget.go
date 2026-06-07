@@ -148,6 +148,7 @@ func Run[T any](ctx context.Context, fn func(context.Context) (T, error), opts O
 	lastFingerprint := ""
 	consecutiveIdentical := 0
 	backoff := o.BackoffInitial
+	var lastErr error // most recent error from fn; attached to budget errors for Unwrap
 
 	emit(AttemptEvent{
 		Kind:                "start",
@@ -165,6 +166,7 @@ func Run[T any](ctx context.Context, fn func(context.Context) (T, error), opts O
 				Limit:    float64(o.MaxWallClock),
 				Observed: float64(elapsed),
 				Attempts: attempt - 1,
+				Last:     lastErr,
 			}
 		}
 
@@ -195,6 +197,7 @@ func Run[T any](ctx context.Context, fn func(context.Context) (T, error), opts O
 			return result, nil
 		}
 
+		lastErr = err
 		classification := Classify(err, o.IsRetryable, o.IsFatal)
 		fingerprint := Fingerprint(err)
 

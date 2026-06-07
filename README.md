@@ -81,7 +81,7 @@ func Run[T any](
 
 A single generic function. Pass your callable, your options, get the typed result or one of:
 
-- `*BudgetExceededError` — attempts / wall-clock / cost cap exhausted. `Unwrap()` returns the last cause for `errors.Is` traversal.
+- `*BudgetExceededError` — attempts / wall-clock / cost cap exhausted. `Unwrap()` returns the last underlying error for `errors.Is` traversal (set on the attempts and wall-clock paths; `nil` on the cost path, which trips on a *successful* call and so has no failure cause).
 - `*AdversarialLoopDetectedError` — same fingerprint repeated `AdversarialThreshold` times.
 - `context.Canceled` / `context.DeadlineExceeded` — propagated from `ctx`.
 - The original error from `fn` — when classified `Fatal` or `Unknown`.
