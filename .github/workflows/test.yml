@@ -28,14 +28,28 @@ jobs:
         # agentbudget-go promises stdlib-only; this fails fast if any
         # require entry lands in go.mod.
         run: |
-          if grep -q "^require " go.mod && grep -q "^require " go.mod | grep -v "// indirect"; then
-            echo "agentbudget-go must have zero direct dependencies in go.mod"
-            cat go.mod
+          set -euo pipefail
+          # Look only at requirement lines (those carrying a "vN" version) and
+          # fail if any of them is NOT marked "// indirect". This covers both
+          # the "require x v1.2.3" and the "require ( ... )" block forms while
+          # ignoring module/go/comment lines.
+          DIRECT="$(grep -E '[[:space:]]v[0-9]' go.mod | grep -v '// indirect' || true)"
+          if [ -n "$DIRECT" ]; then
+            echo "agentbudget-go must have zero direct dependencies in go.mod:"
+            echo "$DIRECT"
             exit 1
           fi
-          # Also check that no third-party imports exist
-          if grep -rhE "^import " *.go | grep -E '"(github\.com|gitlab\.com|bitbucket\.org|golang\.org/x)' ; then
-            echo "Third-party import detected; agentbudget-go must be stdlib-only"
+          # Also check that no third-party packages are imported anywhere in the
+          # module (including test files). `go list -deps` resolves the real
+          # import set, so this catches dot/aliased imports too. Exclude the
+          # module's own package path from the match.
+          MOD="$(go list -m)"
+          DEPS="$(go list -deps ./... \
+            | grep -E '^(github\.com|gitlab\.com|bitbucket\.org|golang\.org/x)' \
+            | grep -v "^${MOD}\(/\|$\)" || true)"
+          if [ -n "$DEPS" ]; then
+            echo "Third-party import detected; agentbudget-go must be stdlib-only:"
+            echo "$DEPS"
             exit 1
           fi
           echo "confirmed: stdlib-only"

@@ -352,3 +352,66 @@ func TestRunHonorsContextCancel(t *testing.T) {
 		t.Errorf("expected context.Canceled; got %v", err)
 	}
 }
+
+// TestRunCancelDuringDefaultBackoffSleep exercises the real (default) ctxSleep
+// path — not a fake Sleep override. The README promises "backoff sleeps honor
+// ctx cancellation"; this asserts that a context cancelled mid-backoff aborts
+// the retry loop with the context error rather than blocking for the full
+// backoff duration.
+func TestRunCancelDuringDefaultBackoffSleep(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	calls := 0
+	start := time.Now()
+	_, err := agentbudget.Run(ctx, func(context.Context) (any, error) {
+		calls++
+		if calls == 1 {
+			// Cancel while the first backoff sleep is in flight.
+			go cancel()
+		}
+		return nil, errThrottled
+	}, agentbudget.Options{
+		MaxAttempts:    10,
+		IsRetryable:    agentbudget.IsAny(errThrottled),
+		BackoffInitial: 10 * time.Second, // long enough that we'd notice a real wait
+		// no Sleep override: use the default context-aware sleep
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled from interrupted backoff; got %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("backoff did not honor cancellation; waited %v", elapsed)
+	}
+}
+
+// TestRunWallClockBudgetErrorCarriesLastCause asserts that the wall-clock
+// BudgetExceededError unwraps to the most recent failure cause, matching the
+// attempts-budget path and the README's documented Unwrap() contract.
+func TestRunWallClockBudgetErrorCarriesLastCause(t *testing.T) {
+	ctx := context.Background()
+	// A Sleep override that advances real wall-clock time by sleeping briefly,
+	// so the second loop iteration's elapsed check trips MaxWallClock after a
+	// failed attempt has recorded its cause.
+	slowSleep := func(_ context.Context, _ time.Duration) error {
+		time.Sleep(2 * time.Millisecond)
+		return nil
+	}
+	_, err := agentbudget.Run(ctx, func(context.Context) (any, error) {
+		return nil, errThrottled
+	}, agentbudget.Options{
+		MaxAttempts:    100,
+		MaxWallClock:   time.Millisecond, // trips on the second iteration
+		IsRetryable:    agentbudget.IsAny(errThrottled),
+		BackoffInitial: time.Millisecond,
+		Sleep:          slowSleep,
+	})
+	var be *agentbudget.BudgetExceededError
+	if !errors.As(err, &be) {
+		t.Fatalf("expected *BudgetExceededError; got %T %v", err, err)
+	}
+	if be.Kind != agentbudget.BudgetKindWallClock {
+		t.Fatalf("kind = %q; want wallClock", be.Kind)
+	}
+	if !errors.Is(err, errThrottled) {
+		t.Error("wall-clock BudgetExceededError should unwrap to the last cause")
+	}
+}
